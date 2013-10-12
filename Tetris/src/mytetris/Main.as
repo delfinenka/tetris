@@ -4,7 +4,6 @@ package mytetris
 	import flash.utils.Timer;
 	import flash.events.TimerEvent;
 	import flash.events.KeyboardEvent;
-	import mx.controls.Alert;
 	
 	/**
 	 * ...
