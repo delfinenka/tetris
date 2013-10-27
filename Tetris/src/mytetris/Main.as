@@ -1,9 +1,15 @@
 package mytetris
 {
 	import flash.display.Sprite;
+	import flash.events.Event;
+	import flash.net.URLLoader;
+	import flash.net.URLRequest;
+	import flash.text.TextColorType;
 	import flash.utils.Timer;
 	import flash.events.TimerEvent;
 	import flash.events.KeyboardEvent;
+	import flash.xml.XMLDocument;
+	import flash.text.*; 
 	
 	/**
 	 * ...
@@ -26,20 +32,60 @@ package mytetris
     private var timeCount:Timer = new Timer(2000);
 	private var gameOver:Boolean = false;
 	private var isPause:Boolean = false;
+	private var UrlLoader: URLLoader = new URLLoader();
+	private var SelectedGame:int;
+	private var myTextBox:TextField = new TextField(); 
+	private var Game:Sprite = new Sprite;
 	
     public function Main() {
 
-        generateField();
+        stage.addEventListener(KeyboardEvent.KEY_DOWN, selectGame);
+		var text:String = "Press 0 to empty field and 1 to start play with map."
+		myTextBox.width = 500; 
+		myTextBox.x = 390;
+		myTextBox.y = 10;
+        stage.addChild(Game); 
+		Game.addChild(myTextBox);
+        myTextBox.text = text; 
+		generateField();
 		initTetrominoes();
-		nextTetromino=Math.floor(Math.random()*7);
-		generateTetromino();
-		stage.addEventListener(KeyboardEvent.KEY_DOWN, onKDown);
-		
     }
+	
+	private function selectGame(e:KeyboardEvent):void {
+		switch (e.keyCode) {
+			case 48:
+				SelectedGame = 0;
+				Game.removeChild(myTextBox);
+				startGame();
+				break;
+			case 49:
+				SelectedGame = 1;
+				Game.removeChild(myTextBox);
+				startGame();
+				break;
+		}
+	}
+	
+	private function startGame():void	{
+		stage.addEventListener(KeyboardEvent.KEY_DOWN, onKDown);
+		stage.removeEventListener(KeyboardEvent.KEY_DOWN, selectGame);
+		clearField();
+		switch (SelectedGame) {
+				  case 0 : 
+					 generateTetromino();
+				  break;
+				  case 1 : 
+					 UrlLoader.addEventListener(Event.COMPLETE, drawBeginning);
+					 UrlLoader.load(new URLRequest("https://dl.dropboxusercontent.com/u/15028166/smile.xml"));	
+				  break;
+		}
+		
+	}
     private function generateField():void {
         fieldArray = new Array();
-        fieldSprite=new Sprite();
-        addChild(fieldSprite);
+        fieldSprite = new Sprite();
+		fieldSprite.name = "field";
+        Game.addChild(fieldSprite);
         fieldSprite.graphics.lineStyle(0,0xCFCCF7);
         for (var i:uint=0; i<20; i++) {
             fieldArray[i]=new Array();
@@ -50,6 +96,7 @@ package mytetris
                 fieldSprite.graphics.endFill();
                 }
             }
+			nextTetromino = Math.floor(Math.random() * 7);
         }
 
       private function initTetrominoes():void {
@@ -104,21 +151,26 @@ package mytetris
 						  timeCount.start();
 						  drawTetromino();
 					  } else {
-						  gameOver = true;
+						  stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKDown);
+						  stage.addEventListener(KeyboardEvent.KEY_DOWN, selectGame);
+						  myTextBox.width = 500; 
+						  var text:String = "GAME OVER :( Press 0 to empty field and 1 to start play with map."
+						  Game.addChild(myTextBox); 
+						  myTextBox.text = text; 
 					  }
 			  
 			  }
 		  }
       }
       private function drawNext():void {
-          if (getChildByName("next")!=null) {
-              removeChild(getChildByName("next"));
+          if (Game.getChildByName("next")!=null) {
+              Game.removeChild(Game.getChildByName("next"));
           }
           var next_t:Sprite=new Sprite();
           next_t.x=390;
           next_t.y=62
           next_t.name="next";
-          addChild(next_t);
+          Game.addChild(next_t);
           next_t.graphics.lineStyle(0,0xb7b7b7);
           for (var i:int=0; i<tetrominoes[nextTetromino][0].length; i++) {
               for (var j:int=0; j<tetrominoes[nextTetromino][0][i].length; j++)
@@ -146,7 +198,7 @@ package mytetris
       private function drawTetromino():void {
           var ct:uint=currentTetromino;
           tetromino=new Sprite();
-          addChild(tetromino);
+          Game.addChild(tetromino);
           tetromino.graphics.lineStyle(0,0xCFCCF7);
           for (var i:int=0; i<tetrominoes[ct][currentRotation].length; i++)
           {
@@ -181,7 +233,7 @@ package mytetris
 					  var rot:uint=(ct+1)%tetrominoes[currentTetromino].length;
 					  if (canPlace(tRow,tCol,rot)) {
 						  currentRotation=rot;
-						  removeChild(tetromino);
+						  Game.removeChild(tetromino);
 						  drawTetromino();
 						  placeTetromino();
 					  }
@@ -218,6 +270,16 @@ package mytetris
 					  break;
 				  case 80:
 					  isPause = !isPause;
+					  if (isPause) {
+						  myTextBox.width = 500; 
+						  var text:String = "PAUSE. Press P to continue."
+						  Game.addChild(myTextBox); 
+						  myTextBox.text = text; 
+					  }
+					  else {
+						  Game.removeChild(myTextBox); 
+					  }
+					 
 					  break;
 			  }
 		  }
@@ -230,7 +292,7 @@ package mytetris
               for (var j:int=0; j<tetrominoes[ct][currentRotation][i].length; j++) {
                   if (tetrominoes[ct][currentRotation][i][j]==1) {
                       landed = new Sprite();
-                      addChild(landed);
+                      Game.addChild(landed);
                       landed.graphics.lineStyle(0,0x000000);
                       landed.graphics.beginFill(colors[currentTetromino]);
                       landed.graphics.drawRect(TS*(tCol+j),TS*(tRow+i),TS,TS);
@@ -240,29 +302,67 @@ package mytetris
                   }
               }
           }
-          removeChild(tetromino);
+		  timeCount.removeEventListener(TimerEvent.TIMER, onTime);
+          Game.removeChild(tetromino);
           checkForLines();
-      }
+      }	  
+	  private function drawBeginning(e:Event):void {         
+          var document:XML = new XML(e.target.data);
+		  var xDoc: XMLDocument = new XMLDocument();
+		  xDoc.parseXML(document.toXMLString());
+		  XML.ignoreWhitespace = true;
+		  var cells:XMLList = document.child("cell");
+		  for each (var item:XML in cells) 
+			{ 
+				var x:int = int(item.child("x").attributes()[0]); 
+				var y:int = int(item.child("y").attributes()[0]); 
+				var color:int = colors[int(item.child("color").attributes()[0])];
+				var landed: Sprite;
+				landed = new Sprite();
+                Game.addChild(landed);
+                landed.graphics.lineStyle(0,0x000000);
+                landed.graphics.beginFill(color);
+                landed.graphics.drawRect(TS*(x),TS*(y),TS,TS);
+                landed.graphics.endFill();
+                landed.name="r"+(y)+"c"+(x);
+                fieldArray[y][x]=1;				 
+			}
+			nextTetromino=Math.floor(Math.random()*7);
+			generateTetromino();
+      }	  
       private function checkForLines():void {
           for (var i:int=0; i<20; i++) {
               if (fieldArray[i].indexOf(0)==-1) {
                   for (var j:int=0; j<12; j++) {
                       fieldArray[i][j]=0;
-                      removeChild(getChildByName("r"+i+"c"+j));
+                      Game.removeChild(Game.getChildByName("r"+i+"c"+j));
                   }
                   for (j=i; j>=0; j--) {
                       for (var k:int=0; k<12; k++) {
                           if (fieldArray[j][k]==1) {
                               fieldArray[j][k]=0;
                               fieldArray[j+1][k]=1;
-                              getChildByName("r"+j+"c"+k).y+=TS;
-                              getChildByName("r"+j+"c"+k).name="r"+(j+1)+"c"+k;
+                              Game.getChildByName("r"+j+"c"+k).y+=TS;
+                              Game.getChildByName("r"+j+"c"+k).name="r"+(j+1)+"c"+k;
                           }
                       }
                   }
               }
           }
       }
+	  private function clearField():void {
+		  if (Game.getChildByName("field") != null) {
+			Game.removeChild(Game.getChildByName("field"));
+			}
+			generateField();
+		  for (var i:int = 0; i < 20; i++) {
+			  for (var j:int = 0; j < 12; j++) {
+				  if (Game.getChildByName("r" + i + "c" + j) != null) {
+					  Game.removeChild(Game.getChildByName("r" + i + "c" + j));
+				  }
+			  }
+		  }
+	  }
       private function canPlace(row:int,col:int,side:uint):Boolean {
           var ct:uint=currentTetromino;
           for (var i:int=0; i<tetrominoes[ct][side].length; i++) {
